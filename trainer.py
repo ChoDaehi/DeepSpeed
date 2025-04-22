@@ -13,7 +13,7 @@ class SimpleDataset(Dataset):
         input_id = self.input_ids[idx]
         return {'input_ids': input_id, 'labels': input_id}
 
-tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+#tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct", use_fast=False,device_map="auto")
 tokenizer.pad_token = tokenizer.eos_token
 texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
@@ -28,7 +28,7 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.float16
 )
 
-model = GPT2LMHeadModel.from_pretrained('gpt2')
+#model = GPT2LMHeadModel.from_pretrained('gpt2')
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",quantization_config=bnb_config,device_map="auto")
 model = deepspeed.init_inference(model, mp_size=1, dtype=torch.float16)
 
