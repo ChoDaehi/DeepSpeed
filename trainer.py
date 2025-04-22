@@ -1,8 +1,7 @@
-import os
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW, AutoModelForCausalLM, AutoTokenizer
 import deepspeed
 
 class SimpleDataset(Dataset):
@@ -15,12 +14,14 @@ class SimpleDataset(Dataset):
         return {'input_ids': input_id, 'labels': input_id}
 
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct")
 tokenizer.pad_token = tokenizer.eos_token
 texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
 dataset = SimpleDataset(tokenizer, texts)
-dataloader = DataLoader(dataset, batch_size=2,shuffle=True)
+dataloader = DataLoader(dataset, batch_size= 2,shuffle=True)
 
 model = GPT2LMHeadModel.from_pretrained('gpt2')
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",device_map="auto")
 model = deepspeed.init_inference(model, mp_size=1, dtype=torch.half)
 
 
