@@ -29,7 +29,7 @@ bnb_config = BitsAndBytesConfig(
 )
 
 #model = GPT2LMHeadModel.from_pretrained('gpt2')
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",quantization_config=bnb_config,device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",device_map="auto")
 model = deepspeed.init_inference(model, mp_size=1, dtype=torch.float16)
 
 
