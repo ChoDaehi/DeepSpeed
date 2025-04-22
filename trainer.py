@@ -14,7 +14,7 @@ class SimpleDataset(Dataset):
         return {'input_ids': input_id, 'labels': input_id}
 
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct")
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.3-70B-Instruct", use_fast=False,device_map="auto")
 tokenizer.pad_token = tokenizer.eos_token
 texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
 dataset = SimpleDataset(tokenizer, texts)
