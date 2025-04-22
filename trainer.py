@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW, AutoModelForCausalLM, AutoTokenizer
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW, AutoModelForCausalLM, AutoTokenizer,BitsAndBytesConfig
 import deepspeed
 
 class SimpleDataset(Dataset):
@@ -20,9 +20,17 @@ texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
 dataset = SimpleDataset(tokenizer, texts)
 dataloader = DataLoader(dataset, batch_size= 2,shuffle=True)
 
+# 4ビット量子化の設定
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16
+)
+
 model = GPT2LMHeadModel.from_pretrained('gpt2')
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",load_in_4bit=True)
-model = deepspeed.init_inference(model, mp_size=1, dtype=torch.half)
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",quantization_config=bnb_config)
+model = deepspeed.init_inference(model, mp_size=1, dtype=torch.float16)
 
 
 # Initialize DeepSpeed
