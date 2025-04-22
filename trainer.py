@@ -21,7 +21,7 @@ dataset = SimpleDataset(tokenizer, texts)
 dataloader = DataLoader(dataset, batch_size= 2,shuffle=True)
 
 model = GPT2LMHeadModel.from_pretrained('gpt2')
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.3-70B-Instruct",load_in_4bit=True)
 model = deepspeed.init_inference(model, mp_size=1, dtype=torch.half)
 
 

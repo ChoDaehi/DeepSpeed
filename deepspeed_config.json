@@ -9,6 +9,14 @@
     "offload_optimizer": {
       "device": "cpu",
       "pin_memory": true
+    },
+    // パラメータ／勾配の NVMe オフロード
+    "offload_param": {
+      "device": "nvme",
+      "nvme_path": "/mnt/d",      // マウントした NVMe パス
+      "buffer_count": 5,
+      "buffer_size": 1e8,
+      "pin_memory": false
     }
   },
     "optimizer": {
