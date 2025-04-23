@@ -26,9 +26,11 @@ args = parser.parse_args()
 
 print(f"Local rank: {args.local_rank}")
 print(f"Model parallelism size: {args.mp_size}")
+device = torch.device(f"cuda:{args.local_rank}" if torch.cuda.is_available() else "cpu")
+
 
 model_name = args.model_name
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False,device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 tokenizer.pad_token = tokenizer.eos_token
 texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
 dataset = SimpleDataset(tokenizer, texts)
@@ -45,10 +47,9 @@ model = GPT2LMHeadModel.from_pretrained('gpt2')
 
 model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name,
-                device_map="auto",  # 여러 GPU에 자동 분산
                     torch_dtype=torch.float16,
                         low_cpu_mem_usage=True
-                        )
+                        ).to(device)
 print('pretrained model load ok!')
 model = deepspeed.init_inference(
                 model,
@@ -60,7 +61,7 @@ model = deepspeed.init_inference(
 
 # Initialize DeepSpeed
 model, optimizer, _, lr_scheduler = deepspeed.initialize(
-    model=model,
+    model=model.to(device),
     model_parameters = model.parameters(),
     config = 'deepspeed_config.json'
 )
