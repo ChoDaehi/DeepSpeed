@@ -28,7 +28,7 @@ print(f"Local rank: {args.local_rank}")
 print(f"Model parallelism size: {args.mp_size}")
 
 model_name = args.model_name
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False,device_map="auto")
 tokenizer.pad_token = tokenizer.eos_token
 texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
 dataset = SimpleDataset(tokenizer, texts)
