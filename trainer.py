@@ -48,8 +48,9 @@ model = GPT2LMHeadModel.from_pretrained('gpt2')
 model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name,
                     torch_dtype=torch.float16,
-                        low_cpu_mem_usage=True
-                        ).to(device)
+                        low_cpu_mem_usage=True,
+            device_map="auto",
+                        )
 print('pretrained model load ok!')
 model = deepspeed.init_inference(
                 model,
