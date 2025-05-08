@@ -1,8 +1,9 @@
+import os
 import torch
-from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW, AutoModelForCausalLM, AutoTokenizer,BitsAndBytesConfig
+from torch.utils.data import DataLoader, Dataset
 import deepspeed
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import argparse
 
 class SimpleDataset(Dataset):
@@ -14,69 +15,86 @@ class SimpleDataset(Dataset):
         input_id = self.input_ids[idx]
         return {'input_ids': input_id, 'labels': input_id}
 
-# コマンドライン引数を定義
-parser = argparse.ArgumentParser(description="DeepSpeed training script")
-# DeepSpeed用に引数を解析
-parser = deepspeed.add_config_arguments(parser)  # DeepSpeed関連の引数を追加
-parser.add_argument("--mp_size", type=int, default=1, help="Model parallelism size")
-parser.add_argument("--local_rank", type=int, default=0, help="Model parallelism size")
-parser.add_argument("--model_name", type=str, default="gpt2", help="DeepSpeed config file path")
-# 引数を解析
-args = parser.parse_args()
+def init_distributed():
+    """分散処理の初期化"""
+    deepspeed.init_distributed()
 
-print(f"Local rank: {args.local_rank}")
-print(f"Model parallelism size: {args.mp_size}")
-device = torch.device(f"cuda:{args.local_rank}" if torch.cuda.is_available() else "cpu")
+    # デバイスの設定
+    torch.cuda.set_device(args.local_rank)
+
+    # 環境変数の設定
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '29500'
+
+    if not dist.is_initialized():
+        dist.init_process_group(
+            backend='nccl',
+            init_method='env://'
+        )
 
 
-model_name = args.model_name
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-tokenizer.pad_token = tokenizer.eos_token
-texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
-dataset = SimpleDataset(tokenizer, texts)
-dataloader = DataLoader(dataset, batch_size= 2,shuffle=True)
+# メインコードの修正
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="DeepSpeed training script")
+    parser = deepspeed.add_config_arguments(parser)
+    parser.add_argument("--mp_size", type=int, default=1)
+    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--model_name", type=str, default="gpt2")
+    args = parser.parse_args()
 
-# 4ビット量子化の設定
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16
-)
-model = GPT2LMHeadModel.from_pretrained('gpt2')
+    # 分散処理の初期化
+    init_distributed()
 
-model = AutoModelForCausalLM.from_pretrained(
+    device = torch.device(f"cuda:{args.local_rank}" if torch.cuda.is_available() else "cpu")
+
+    # モデルとトークナイザーの設定
+    model_name = args.model_name
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    tokenizer.pad_token = tokenizer.eos_token
+    try:
+    # モデルの初期化
+        model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name,
-                    torch_dtype=torch.float16,
-                        low_cpu_mem_usage=True
-                        ).to(device)
-print('pretrained model load ok!')
-model = deepspeed.init_inference(
-                model,
-                mp_size=args.mp_size,  # 사용 가능한 GPU 수에 맞게 조정
-                dtype=torch.float16,
-                replace_method="auto",
-                replace_with_kernel_inject=False,
-            )
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            device_map=None  # 'auto'から変更
+        )
+        print('Pretrained model is loaded successfully')
+        # DeepSpeedの設定
+        ds_config = {
+            "train_batch_size": 2,
+            "fp16": {"enabled": True},
+            "zero_optimization": {"stage": 2},
+            "distributed_backend": "nccl"
+        }
 
-# Initialize DeepSpeed
-model, optimizer, _, lr_scheduler = deepspeed.initialize(
-    model=model.to(device),
-    model_parameters = model.parameters(),
-    config = 'deepspeed_config.json'
-)
+        # DeepSpeedの初期化
+        model, optimizer, _, lr_scheduler = deepspeed.initialize(
+            model=model,
+            model_parameters=model.parameters(),
+            config='deepspeed_config.json'
+        )
 
-for epoch in range(3):
-    for batch in dataloader:
-        input_ids = batch['input_ids'].to(model.device)
-        labels = batch['labels'].to(model.device)
-        outputs = model(input_ids, labels=labels)
-        loss = outputs[0]
-        model.backward(loss)
-        model.step()
+        print('DeepSpeed model is initialized successfully')
+        # データセットとデータローダーの設定
+        texts = ["Hello, DeepSpeed!", "DeepSpeed makes large model training efficient."]
+        dataset = SimpleDataset(tokenizer, texts)
+        dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
 
-        print(f'Epoch: {epoch}, Loss: {loss.item()}')
+        # 学習ループ
+        for epoch in range(3):
+            for batch in dataloader:
+                input_ids = batch['input_ids'].to(model.device)
+                labels = batch['labels'].to(model.device)
+                outputs = model(input_ids, labels=labels)
+                loss = outputs[0]
+                model.backward(loss)
+                model.step()
 
-# トレーニング処理（DeepSpeedなど）が終了した後に追加
-if dist.is_initialized():  # プロセスグループが初期化されている場合のみ実行
-    dist.destroy_process_group()
+                if args.local_rank == 0:
+                    print(f'Epoch: {epoch}, Loss: {loss.item()}')
+
+    finally:
+        # クリーンアップ
+        if dist.is_initialized():
+            dist.destroy_process_group()
