@@ -57,7 +57,9 @@ if __name__ == "__main__":
             pretrained_model_name_or_path=model_name,
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
-            device_map=None  # 'auto'から変更
+            device_map='cpu',  # 'auto'から変更
+            offload_folder='tmp/offload',
+            offload_state_dict=True
         )
         print('Pretrained model is loaded successfully')
         # DeepSpeedの設定

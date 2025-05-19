@@ -1,23 +1,23 @@
 {
     "train_micro_batch_size_per_gpu": 1,
     "train_batch_size": 4,
-    "gradient_accumulation_steps": 4,
+    "gradient_accumulation_steps": 1,
     "steps_per_print": 10,
     "gradient_clipping": 1.0,
     "zero_optimization": {
         "stage": 3,
         "offload_optimizer": {
-            "device": "nvme",
-            "nvme_path": "/mnt/f",
+            "device": "cpu",
+            "nvme_path": "~/DeepSpeed/nvme_offload/optimizer_offload",
             "pin_memory": false,
             "buffer_count": 5,
             "fast_init": false
         },
         "offload_param": {
             "device": "nvme",
-            "nvme_path": "/mnt/f",
+            "nvme_path": "~/DeepSpeed/nvme_offload/param_offload",
             "pin_memory": false,
-            "buffer_count": 1,
+            "buffer_count": 6,
             "buffer_size": 6e8,
             "max_in_cpu": 1e9
         },
